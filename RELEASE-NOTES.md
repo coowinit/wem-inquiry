@@ -22,3 +22,10 @@
 - 根据使用需求移除独立询盘中的 `wp_mail()` 管理员通知。
 - 独立询盘仍保存至原生 Comments / Comment Meta，由管理员进入 Inquiries 查看。
 - 旧普通评论通知行为不变，仍由 WordPress 自身设置控制。
+
+
+## v1.0.0 功能封板后变更（main 分支）
+
+- 移除独立询盘管理员邮件通知；仅由管理员在后台查看。
+- 在编辑询盘的联系信息框新增只读 **Source Page**，通过 `comment_post_ID` 定位来源页面。原生 **URL** 仍表示 `comment_author_url`。
+- 核心功能冻结，后续新需求留待 v2；REST / Feed 的未完成安全边界检查继续如实保留。
