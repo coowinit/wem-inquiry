@@ -2,7 +2,7 @@
 /**
  * Plugin Name: WEM Inquiry
  * Description: Private inquiry forms plus backwards-compatible Phone/Country fields for native comments.
- * Version: 1.0.0-rc.1
+ * Version: 1.0.0
  * Requires at least: 6.4
  * Requires PHP: 7.4
  * Text Domain: wem-inquiry
@@ -164,6 +164,27 @@ function wem_inquiry_contact_box( $comment ) {
         echo '<p><label for="wem-inquiry-' . esc_attr( $field ) . '">' . esc_html( ucfirst( $field ) ) . '</label>';
         echo '<input class="widefat" id="wem-inquiry-' . esc_attr( $field ) . '" name="wem_inquiry_meta_' . esc_attr( $field ) . '" maxlength="' . esc_attr( $max ) . '" value="' . esc_attr( get_comment_meta( $comment->comment_ID, $field, true ) ) . '"></p>';
     }
+
+    // The source belongs to WordPress comment_post_ID, not comment_author_url.
+    $source_id = (int) $comment->comment_post_ID;
+    $source = $source_id ? get_post( $source_id ) : null;
+    echo '<p><strong>' . esc_html__( 'Source Page', 'wem-inquiry' ) . '</strong><br>';
+    if ( $source ) {
+        $source_title = get_the_title( $source_id );
+        if ( '' === $source_title ) {
+            $source_title = sprintf( __( 'Post #%d', 'wem-inquiry' ), $source_id );
+        }
+        $source_url = get_permalink( $source_id );
+        if ( $source_url ) {
+            echo '<a href="' . esc_url( $source_url ) . '" target="_blank" rel="noopener noreferrer">' . esc_html( $source_title ) . '</a>';
+        } else {
+            echo esc_html( $source_title );
+        }
+        echo ' <span class="description">(#' . esc_html( (string) $source_id ) . ')</span>';
+    } else {
+        echo esc_html__( 'Source page unavailable', 'wem-inquiry' );
+    }
+    echo '</p>';
 }
 add_action( 'edit_comment', function ( $comment_id ) {
     $comment = get_comment( $comment_id );
