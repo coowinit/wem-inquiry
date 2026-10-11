@@ -93,10 +93,7 @@ function wem_inquiry_submit() {
     if ( is_wp_error( $comment_id ) || ! $comment_id ) { delete_transient( $key ); wem_inquiry_redirect( $post_id, 'error' ); }
     if ( '' !== $phone ) { update_comment_meta( $comment_id, 'phone', $phone ); }
     if ( '' !== $country ) { update_comment_meta( $comment_id, 'country', $country ); }
-    // Delivery depends on the site's email transport configuration.
-    $subject = sprintf( __( 'New inquiry for %s', 'wem-inquiry' ), get_the_title( $post_id ) );
-    $body = "Inquiry #{$comment_id}\nFrom: {$name}\nEmail: {$email}\nPhone: {$phone}\nCountry: {$country}\n\n{$message}\n\n" . admin_url( 'comment.php?action=editcomment&c=' . $comment_id );
-    wp_mail( get_option( 'admin_email' ), $subject, $body );
+    // Data is retained in WordPress Comments; no administrator email is sent.
     wem_inquiry_redirect( $post_id, 'sent' );
 }
 add_action( 'admin_post_nopriv_wem_inquiry_submit', 'wem_inquiry_submit' );
