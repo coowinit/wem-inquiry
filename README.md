@@ -11,7 +11,7 @@
 | [wem-inquiry/](wem-inquiry/) | **实际插件目录**，包含插件入口和技术 README |
 | [tests/manual/](tests/manual/) | 手工回归测试页面及说明，**不要部署到生产主题** |
 | [RELEASE-NOTES.md](RELEASE-NOTES.md) | 发布候选版说明 |
-| [LICENSE-NOTE.md](LICENSE-NOTE.md) | 许可证声明说明，后续需补齐正式 LICENSE 文件 |
+| [LICENSE](LICENSE) | GNU GPL v2 完整许可证正文，插件声明 GPL-2.0-or-later |
 
 **安装时只将 `wem-inquiry/` 放入 `wp-content/plugins/`；不要把整个 GitHub 仓库作为插件目录安装。** 如果通过 WordPress 后台上传 ZIP，请先单独压缩 `wem-inquiry/` 文件夹。
 
