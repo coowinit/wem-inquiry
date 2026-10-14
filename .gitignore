@@ -1,0 +1,13 @@
+# Local / IDE / OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+# Temporary artifacts
+*.log
+*.tmp
+*.bak
+*.zip
+# Local runtime config
+.env
+.env.*

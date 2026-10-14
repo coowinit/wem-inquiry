@@ -1,233 +1,124 @@
-# WEM Inquiry — WordPress 轻量级询盘管理插件
+# WEM Inquiry — WordPress 轻量级询盘插件
 
-基于 WordPress 原生 Comments 和 Comment Meta 的轻量级询盘插件，兼容旧版联系表单，并提供独立的私密询盘入口。
+基于 WordPress 原生 **Comments** 的企业询盘插件。主题自行控制表单 HTML、CSS 与交互；插件负责字段配置、提交校验、询盘保存、后台只读详情和常见公开接口的隐私防护。**不开发独立询盘管理系统，不创建专用数据库表。**
 
-> 当前发布：**v1.0.0（主题集成基线）**。部分 REST/Feed 及 CDN 环境的验证尚未完成，不代表已通过完整安全验收。
+> **当前状态：v1.1.0 功能验收候选版。** Contact / Product 询盘提交、五种自定义字段、原生 Comments 审核、一键复制及隐私检测已通过测试站阶段性验收。尚未进行完整生产安全认证；本次仓库整理不代表已发布新的 Tag / Release。
 
-## 仓库目录与安装说明
+## 核心能力
 
-| 目录 | 用途 |
+| 模块 | 说明 |
 | --- | --- |
-| [wem-inquiry/](wem-inquiry/) | **实际插件目录**，包含插件入口和技术 README |
-| [tests/manual/](tests/manual/) | 手工回归测试页面及说明，**不要部署到生产主题** |
-| [RELEASE-NOTES.md](RELEASE-NOTES.md) | 发布候选版说明 |
-| [LICENSE](LICENSE) | GNU GPL v2 完整许可证正文，插件声明 GPL-2.0-or-later |
+| 原生后台管理 | 直接使用 WordPress「评论 / Comments」列表、搜索、分页、Approve、Pending、Spam、Trash |
+| 内置字段 | Name、Email、Phone、Country、Message |
+| 自定义字段 | 最多新增 8 项，支持 Text、Textarea、Select、Radio、Checkbox；已有超额历史配置不会被自动截断 |
+| 表单接入 | 主题自定义 HTML（推荐）；保留 `[wem_inquiry_form]` Shortcode 兼容 |
+| 数据存储 | `wp_comments` + `wp_commentmeta`，询盘类型为 `wem_inquiry` |
+| 后台详情 | 来源链接、联系方式、实际保存的扩展字段、IP / User Agent 只读展示 |
+| Copy Inquiry | 复制业务字段、消息、来源和提交时间；默认不复制 IP / User Agent |
+| 隐私检测 | 管理员主动执行 REST、评论 Feed、前台 HTML 的虚构数据匿名回环检测 |
 
-**安装时只将 `wem-inquiry/` 放入 `wp-content/plugins/`；不要把整个 GitHub 仓库作为插件目录安装。** 如果通过 WordPress 后台上传 ZIP，请先单独压缩 `wem-inquiry/` 文件夹。
+## 项目目录
 
-下面是插件的完整技术与使用指南。
+本仓库以 **插件源码作为根目录**，不再额外嵌套同名文件夹：
 
----
+```text
+wem-inquiry/                  # GitHub 仓库根目录
+├── wem-inquiry.php          # WordPress 插件入口（v1.1.0）
+├── includes/
+│   ├── class-fields.php       # 字段定义、配置和验证
+│   ├── class-form.php         # Shortcode、提交及隐藏字段
+│   ├── class-storage.php      # Comments / Comment Meta 存储
+│   ├── class-admin.php        # 字段配置及原生评论详情展示
+│   ├── class-privacy.php      # 公开评论、REST、Feed 的隐私保护
+│   ├── class-diagnostics.php  # 管理员一键隐私检测
+│   └── class-legacy.php       # 历史评论字段兼容
+├── docs/
+│   ├── FORM-GUIDE.md       # 表单接入完整指南
+│   └── FINAL-REVIEW.md     # 测试记录与风险边界
+├── README.md               # 本文档
+└── .gitignore
+```
 
+旧版 PHP 代码、临时测试模板和重复 README 不必保留在工作树中；原有 Git 提交与 Tag 历史仍可追溯。
 
-轻量级 WordPress 询盘与历史评论字段兼容插件。**v1.0.0（功能封板；安全检查限制见下文）**。以 WordPress 原生 `wp_comments` 和 `wp_commentmeta` 保存数据，不建自定义数据库表。兼顾新网站的独立询盘表单与旧网站的 `Phone / Country` 评论表单。
+## 环境与安装
 
-> **最重要的区别**：`[wem_inquiry_form]` 创建 `comment_type=wem_inquiry` 的独立询盘；旧主题提交到 `wp-comments-post.php` 创建的是**普通评论**。普通评论没有本插件的独立询盘隔离保护。旧版的“前台不显示评论”不等于“数据不可被匿名读取”。发布生产环境前须分别验证两个入口的隐私行为。
+- WordPress **6.4+**、PHP **7.4+**（插件头部声明的最低要求）。
+- 先备份网站数据库和旧插件，在测试站替换验收后再考虑生产部署。
+- **GitHub 仓库结构与 WordPress 安装 ZIP 不同**：从本仓库制作插件 ZIP 时，压缩包顶层必须包含 `wem-inquiry/` 目录，其内部再放 `wem-inquiry.php`、`includes/`、`docs/`、`README.md`。不要将仓库根目录文件直接压缩为没有插件目录的 ZIP。
+- 安装后进入 **设置 → WEM Inquiry Fields** 配置字段，进入 **设置 → WEM Inquiry Privacy** 运行隐私检测；日常询盘在 **评论（Comments）** 中管理。
 
-## 1. 功能与范围
+## 后台字段设置
 
-| 功能 | 独立询盘 | 旧评论兼容 |
+五个内置字段中 Name、Email、Message 由服务端要求必填，Phone、Country 默认可选。自定义字段需要设置 **Field Key、Label、Type、Required**；Select / Radio 还需填写每行一个的 Options。字段 Key 应使用稳定的小写字母和下划线，已有历史数据后不要随意更名。
+
+以 Contact 的测试字段为例：
+
+| Field Key | Label | Type |
 | --- | --- | --- |
-| 提交入口 | `[wem_inquiry_form]` → `admin-post.php` | `comment_form()` 或旧主题 `<form>` → `wp-comments-post.php` |
-| 存储 | `wp_comments` + `wp_commentmeta` | 相同表 |
-| `comment_type` | `wem_inquiry` | WordPress 普通评论类型 |
-| 电话、国家元数据键 | `phone`、`country` | `phone`、`country` |
-| 页面是否需要开放评论 | 不需要 | 需要遵循 WordPress 评论开放与提交规则 |
-| 后台 | 评论 → Inquiries | 评论 → 所有评论 |
-| 隔离 | 插件针对标准公开评论查询/REST 进行防护 | **没有自动转为私密** |
-| 邮件 | **不发送管理员通知邮件** | WordPress 原生评论通知遵循站点设置 |
+| `company` | Company | Text |
+| `project_details` | Project Details | Textarea |
+| `request_samples` | Request Samples | Checkbox |
+| `product_interest` | Product Interest | Select |
+| `customer_type` | Customer Type | Radio |
 
-不提供：管理员询盘通知邮件、附件上传、CRM、询盘 CSV 导出、自动回复、独立数据表、多图、整套反垃圾服务及自动迁移历史普通评论。
+后台删除一个字段的**配置**不会删除此前保存的 Comment Meta；历史详情仍尽量展示实际保存的数据。后台详情只显示该询盘真正存储过的自定义字段，不会因全站新增字段而出现一堆空项。
 
-## 2. 原理和数据流
+## 表单接入与字段范围
 
-### 2.1 新的独立询盘
+**推荐方式：在主题中自行编写 `<form>`，让插件处理提交。** 不必强制使用 Shortcode 来生成整套表单外观。
 
-```text
-页面 / Product 详情中的 [wem_inquiry_form]
-    └─ name / email / phone / country / message
-          ↓ POST（Nonce + 蜜罐 + 基础限流）
-/wp-admin/admin-post.php?action=wem_inquiry_submit
-          ↓ 数据校验、清理
-wp_insert_comment()
-    ├─ wp_comments: comment_type=wem_inquiry, comment_approved=0,
-    │               comment_post_ID、姓名、邮箱、留言、时间
-    └─ wp_commentmeta: phone、country
-          ↓
-303 重定向原关联文章 URL，显示成功/失败消息
-```
-
-独立询盘不调用 `wp_mail()` 发送通知。表单成功提示仅表示保存流程已完成，不代表发送过邮件。`wem_inquiry_status=sent` 是 URL 状态提示，可人工修改，不能视为不可伪造的提交证明。
-
-### 2.2 旧版兼容流程
-
-```text
-旧主题的 Contact Us HTML 表单 / WordPress comment_form()
-          ↓ POST
-/wp-comments-post.php
-          ↓ WordPress 校验、插入普通评论
-comment_post Hook
-          ↓ 插件读取 phone/country 或 wccf_phone/wccf_country
-wp_commentmeta: phone、country
-          ↓
-后台“评论”列表和评论编辑页面显示/编辑 Phone、Country
-```
-
-原站手写页面字段如下即可被兼容：
-
-```html
-<form method="post" action="/wp-comments-post.php">
-  <!-- WordPress 原生字段：author、email、comment、comment_post_ID、comment_parent -->
-  <input name="phone" type="text">
-  <input name="country" type="text">
+```php
+<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+    <?php wem_inquiry_form_hidden_fields( get_queried_object_id() ); ?>
+    <label for="wem-name">Name</label>
+    <input id="wem-name" name="wem_name" required>
+    <label for="wem-email">Email</label>
+    <input id="wem-email" type="email" name="wem_email" required>
+    <label for="wem-message">Message</label>
+    <textarea id="wem-message" name="wem_message" required></textarea>
+    <button type="submit">Send Inquiry</button>
 </form>
 ```
 
-**以上只是字段命名说明，并非可直接使用的完整表单。** 实际旧模板仍需包含 WordPress 必要字段、有效文章 ID、表单校验及安全设置。旧的 `page-contact-us.php` 可继续使用，插件不要求重写页面布局。
+仅在已启用插件、且来源文章可公开访问的情况下输出真实提交表单；生产模板需要判断 `function_exists( 'wem_inquiry_form_hidden_fields' )` 并处理回退。上方只是**最小接入示例**，更多字段 HTML、验证、状态反馈和缓存注意事项参见 [表单接入指南](docs/FORM-GUIDE.md)。
 
-## 3. 安装与升级
+- 产品详情 `post_type=product`：默认只接收内置五字段，不需要提交 Contact 的扩展字段。
+- Contact 等其他公开来源：允许提交后台配置的自定义字段，具体服务端必填要求按来源适用规则执行。
+- 服务端按真实来源决定允许字段，不依赖客户端声明。
+- Shortcode `[wem_inquiry_form]` / `[wem_inquiry_form post_id="123"]` 继续保留向后兼容，不作为本主题主要布局方案。
+- 成功和失败跳转状态为 `wem_inquiry_status=sent|error`；`sent` 表示存储成功，不代表邮件已发送，插件本身不发送通知邮件。
 
-**建议环境**：WordPress 6.4+，PHP 7.4+（实际部署应使用仍在维护的 PHP 版本）。
+## 数据与历史兼容
 
-1. 备份数据库（尤其 `wp_comments`、`wp_commentmeta`）以及当前插件代码。
-2. 停用旧版 **Custom Comment Fields**，避免表单字段、管理列重复；不能和本插件同时启用。
-3. 将 ZIP 通过 WordPress 后台 **插件 → 安装插件 → 上传插件** 安装；或解压 `wem-inquiry/` 至 `wp-content/plugins/`。
-4. 启用 **WEM Inquiry**。升级当前测试版时，使用同名 `wem-inquiry` 目录覆盖，保持 WordPress 站点备份。
-5. 测试旧联系页面提交姓名、邮箱、留言、电话、国家，并在 **评论** 后台检查保存、编辑、清空是否正常。
-6. 在新的 Page 或 Product 详情插入 `[wem_inquiry_form]`，测试私密询盘和 `评论 → Inquiries`。
-7. 验证匿名 API、Feed、缓存、日志后才用于真实访客。
+| 信息 | 存储位置 |
+| --- | --- |
+| 姓名、邮箱、正文、来源文章 ID、时间、IP、User Agent、审核状态 | `wp_comments` |
+| 私密询盘标识 | `comment_type = wem_inquiry` |
+| 电话、国家 | Comment Meta：`phone`、`country` |
+| 新自定义字段 | Comment Meta：`_wem_inquiry_{field_key}` |
+| 字段配置 | Options：`wem_inquiry_fields` |
 
-停用插件不会主动删除 `wp_comments`、`wp_commentmeta` 中的数据，但**停用后私密询盘的插件层隔离也会停止**；生产站点不要仅为排错长期停用防护。切勿把已有普通评论直接批量 SQL 修改为私密询盘，先备份并制定转换与回归方案。
+旧的 Phone / Country、普通评论兼容代码和原来的 Shortcode 均保留。旧普通评论不会自动迁移为私密询盘，也不会因为插件安装而自动得到私密保护。
 
-## 4. 新主题使用：Shortcode
+## 隐私、安全与已知限制
 
-在 Page / Post / 公开 CPT 内容中：
+- **Approve 不等于公开询盘。** 已批准的 `wem_inquiry` 仍应被插件从标准匿名评论查询、REST 读取和评论 Feed 中排除。
+- 在测试站，一键隐私检测曾发现评论 Feed 暴露虚构的 Approved 测试记录；修复后复测的 REST、Feed、来源页 HTML 均未发现相同测试标识。**这一结论仅覆盖当次检测路径。**
+- 检测使用服务器侧无登录 Cookie 的 HTTP 回环请求，不等于真实外部渗透测试；对第三方自定义 SQL/API、缓存历史副本、插件停用后的风险不做安全保证。
+- **不要在含真实客户资料的正式网站上停用本插件测试隐私保护。** 正式环境应管理访问权限、备份和保留策略。
+- 目前自定义 Textarea 的清洗可能压缩换行；按既定验收决定暂不修改。对确需保留原始段落的业务应另行评估。
+- IP 和完整 User Agent 仅用于后台诊断，不包含在默认一键复制文本中。
 
-```text
-[wem_inquiry_form]
-```
+## 测试与维护
 
-可明确绑定产品（例：ID 52）：
+发布前至少检查 Contact / Product 匿名提交、原生 Comments 审核与垃圾箱、五种自定义字段、旧 Meta、Copy Inquiry、缓存、REST 与 Feed 外部匿名访问。详见 [Final Review](docs/FINAL-REVIEW.md)。
 
-```text
-[wem_inquiry_form post_id="52"]
-```
+项目的方向是 **小核心、原生管理、表单外观自主、历史数据不迁移**。目前不扩展独立询盘管理列表、Ajax、邮件系统、文件上传或多表单可视化构建器。
 
-PHP 模板中：
+## 版本状态
 
-```php
-<?php echo do_shortcode( '[wem_inquiry_form]' ); ?>
-```
+- `v1.0.0`：旧版表单/Comments 数据与历史兼容基础，历史内容可从 Git 提交或既有 Tag 查看。
+- `v1.1.0`：架构重写及测试站功能验收候选。本次整理用于准备 GitHub Commit，**未自动创建 Commit、Tag 或 Release**。
 
-Shortcode 只对已发布且前台可访问的文章或内容类型输出；默认关联当前查询对象。主题可通过 `.wem-inquiry-form` 以及元素选择器设置样式。插件不强制加载全站 CSS/JS，不控制表单视觉风格。联系页面如需专属 UI，可由主题定制。注意确认隐藏字段 `wem_post_id` 对应正确的页面/产品。
-
-字段：Name、Email、Message 必填；Phone、Country 可选。新的独立询盘不要求目标文章启用普通评论。
-
-## 5. 旧网站兼容：字段对应表
-
-| 提交场景 | 请求字段 | 写入 comment meta |
-| --- | --- | --- |
-| 旧手写表单 | `phone` / `country` | `phone` / `country` |
-| `comment_form()` | `wccf_phone` / `wccf_country` | `phone` / `country` |
-| 独立询盘 Shortcode | `wem_phone` / `wem_country` | `phone` / `country` |
-
-- 旧 `comment_form()` 自动增加电话和国家输入框（支持已登录/未登录访客）。
-- 历史 Meta Key 未更改，已有值不需要数据库迁移。
-- `comment_post` Hook 负责保存旧表单附加字段；字段值被清理并限制长度。
-- `comment_form()` 额外提交 `wccf_fields_nonce`；若提交该字段，则必须通过验证；为了兼容旧手写表单，**没有该 nonce 的请求也可以保存附加字段**。这不是与新独立询盘同等级的安全模型。
-- 旧普通评论仍然是普通评论，是否公开由 WordPress 评论机制和站点其他代码决定。
-- 旧表单原本未保存的空字段无法自动恢复；升级只保证未来请求的保存与已有历史值读取。
-
-## 6. 后台管理
-
-### 私密询盘
-
-后台 **评论 → Inquiries**：只读概览列表，列出日期、关联页面、姓名、邮箱、电话、国家和留言摘录。点击姓名使用 WordPress 原生评论编辑界面，更改电话和国家。仅具有 `moderate_comments` 权限的用户可访问该列表。
-
-### 普通评论
-
-后台 **评论 → 所有评论** 增加 Phone、Country 列。普通评论编辑页增加对应字段，并保持旧数据。保存时校验编辑权限和专用 Nonce。
-
-### 邮件通知策略
-
-**独立 `wem_inquiry` 询盘只保存到数据库，不主动调用 `wp_mail()` 发送管理员通知。** 管理员按需进入 **评论 → Inquiries** 查看。旧版普通评论继续遵循 WordPress 自身的评论通知设置；本插件不接管全站邮件功能。
-
-## 7. 安全与隐私边界
-
-**独立询盘：** 默认写为待审状态，阻止常规批准流把它变为已批准；对无 `moderate_comments` 权限的标准评论查询追加类型过滤，并拦截 REST `/wp/v2/comments/{id}` 的直接读取。提供 Nonce、蜜罐与每 IP+页面 60 秒基础限流。
-
-**不能将其理解为绝对隔离：** 这不覆盖数据库直接读取、其他插件自行 SQL 查询、非标准 API 或被入侵的管理员账户；插件停用也会取消过滤保护。公开 Nonce 并非身份认证或强反垃圾机制。生产环境建议进行 API/Feed/主题自定义接口审查、日志监控和反垃圾策略检查。
-
-**普通评论：** 不自动隐藏、不自动转换为私密询盘。若历史 Contact Us 留言包含客户个人信息，必须单独检查它们的审核状态、公开评论、REST API、评论 Feed、第三方接口和搜索引擎收录。仅在模板中删除 `comments_template()` 并不足够。
-
-**隐私运营：** 邮箱通知、备份、副本、访问权限、保留期限和删除请求均需站点负责人落实。插件不会自动加密数据库内容。
-
-## 8. 实站回归测试清单
-
-- [ ] 旧联系页 `phone` / `country` 提交成功，后台读取正确。
-- [ ] 原生 `comment_form()` 的 `wccf_phone` / `wccf_country` 提交成功。
-- [ ] 历史评论电话、国家正确显示，编辑、清空、保存成功。
-- [ ] 新页面 `[wem_inquiry_form]` 可匿名提交，关联 `comment_post_ID` 正确。
-- [ ] 新表单无效邮箱、空留言、错误 Nonce、蜜罐和 60 秒限流正确处理。
-- [ ] 目标文章关闭评论时，新独立表单仍可提交。
-- [ ] `评论 → Inquiries` 中新记录为 `wem_inquiry`，初始待审。
-- [ ] 匿名 REST 评论列表、单条 REST、评论 Feed、主题评论展示均无法取得新询盘。
-- [ ] 检查 **旧普通评论** 中客户信息是否经任何公开接口暴露。
-- [ ] 管理员误批准新询盘后仍不公开；停用及重新启用插件的风险可控。
-- [ ] 独立询盘成功保存后未触发插件自定义管理员邮件通知；旧普通评论通知遵循 WordPress 设置。
-- [ ] 有页面缓存、CDN 时分别测试匿名表单 Nonce；观察 PHP 和浏览器错误日志。
-
-建议至少在未登录浏览器、管理员登录浏览器和不同设备/缓存状态下交叉验证。静态 PHP 语法检查不能替代 WordPress 实站安全验收。
-
-## 9. 本轮实站验收记录（2026-10-11）
-
-以下仅记录**已提供截图或由用户明确反馈**的事实，不代表完成渗透测试：
-
-| 项目 | 本轮结果 | 说明 |
-| --- | --- | --- |
-| 旧版 Contact Us 的 Phone、Country | 已通过 | 用户在旧站实测保存与后台显示 |
-| 新独立询盘提交、关联文章、Phone/Country | 已通过 | 管理后台截图与测试页验证 |
-| `comment_type=wem_inquiry` | 已通过 | 诊断读取数据库状态 |
-| 管理员误批准后状态 | 已通过初步验证 | 批准后刷新，状态仍为 `0` |
-| 匿名 REST 单条 `/wp/v2/comments/1452` | 已通过本次请求 | 返回插件 `wem_inquiry_private`、404 |
-| REST 列表及评论 Feed | 仅本次未发现 / 部分无法判断 | 多数 HTTP 200 未发现测试邮箱；两项关联页自请求为 HTTP 530 |
-| 管理员邮件通知 | 已从独立询盘流程移除 | 仅后台管理；旧普通评论仍遵循 WordPress 自身通知设置 |
-| 禁用插件时的公开访问风险 | 尚未验收 | 禁用会移除保护，禁止在有真实数据的生产站点试验 |
-| 缓存/CDN 和其他插件自定义公开接口 | 尚未验收 | 需要部署环境专项检查 |
-
-测试页仅用于人工回归，不是安全认证工具。HTTP 200、未出现某一个邮箱、HTTP 530 均不足以证明接口绝对安全。
-
-## 10. 文件结构
-
-```text
-wem-inquiry/               # 可安装的生产插件目录
-├── wem-inquiry.php        # 表单、提交、存储、隐私保护、后台、旧站兼容
-└── README.md              # 原理、安装、兼容、安全与回归测试
-
-tests/manual/             # 仓库测试资料，不部署到插件目录
-├── page-wem-inquiry-test.php
-└── README.md
-```
-
-目前保持单文件 PHP 核心，避免为少量功能过度拆分。`tests/manual/` 仅供测试站点使用，不随生产安装目录发布。后续若业务量增长，再按 Form / Storage / Admin / Legacy 模块拆分。
-
-## 11. 版本历史与发布建议
-
-- **v0.1.0 RC**：独立询盘短代码、评论存储、后台查看与隐私过滤基础。
-- **v0.1.1 RC**：恢复旧评论表单字段、历史字段读取及后台编辑。
-- **v0.1.2 RC**：兼容原站手写 `phone`、`country` 字段保存；已在旧站由用户验证。
-- **v0.1.3 RC**：整理完整技术与使用文档；增加空 Post Type / `WP_Error` 的防御性检查；不改变已验证的数据协议。
-
-**v1.0.0 功能封板**：不再增加功能；REST 列表 / Feed 的全面覆盖、旧普通评论隐私及 CDN/回环 530 等边界仍需按站点环境复核。
-
-许可证：**GPL-2.0-or-later**。
-
-
-
-## v1.0.0：询盘来源页面（只读）
-
-在 **评论 → Inquiries → 编辑询盘 → Inquiry contact details** 中新增 **Source Page**，从原生 `comment_post_ID` 获取来源文章/页面标题及前台链接，并显示对应 ID。原生编辑表单中的 **URL** 指 `comment_author_url`（留言者个人网站），并非询盘来源；保持为空是正常的。
-
-此功能不创建新字段、不写入 Comment Meta，也不修改已有记录。来源页面被删除或无法生成链接时显示后备文本。
-
-**验收提示**：需在测试站点打开新、旧询盘记录检查链接；PHP 静态检查不能证明实际链接正确。插件功能封板不等于对全部公开接口的安全认证。
+许可证：GPL-2.0-or-later（以插件头部及仓库授权文件为准）。
